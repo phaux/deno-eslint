@@ -13,7 +13,7 @@ First, create your `eslint.config.js`:
 ```js
 import eslintJs from "npm:@eslint/js";
 import tsEslint from "npm:typescript-eslint";
-import { createDenoProgram } from "https://deno.land/x/deslint/index.js";
+import { createDenoProgram } from "https://deno.land/x/deslint/mod.ts";
 
 export default tsEslint.config(
   eslintJs.configs.recommended,

@@ -1,7 +1,7 @@
 // @ts-check
 // import eslint from "npm:@eslint/js";
 import tsEslint from "npm:typescript-eslint";
-import { createDenoProgram } from "./createDenoProgram.ts";
+import { createDenoProgram } from "./mod.ts";
 
 export default tsEslint.config(
   // eslint.configs.recommended,
