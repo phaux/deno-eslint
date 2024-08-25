@@ -3,32 +3,36 @@ import { parse } from "jsr:@std/path";
 import MagicString from "https://esm.sh/magic-string";
 import * as ts from "npm:typescript";
 import { getLogger } from "jsr:@std/log";
-import { memoizedFetch } from "./memoizedFetch.js";
+import { memoizedFetch } from "./memoizedFetch.ts";
 
 const logger = () => getLogger("VfsHost");
 
 /**
- * @typedef {object} ImportMap
- * @property {Record<string, URL>} [imports]
- * @property {Record<string, Record<string, URL>>} [scopes]
+ * Import map object.
  */
+export interface ImportMap {
+  imports?: Record<string, URL>;
+  scopes?: Record<string, Record<string, URL>>;
+}
 
 /**
  * TypeScript Compiler Host implementation that uses a Virtual File System.
- *
- * @extends {Map<string, string>}
- * @implements {ts.CompilerHost}
  */
-export class VfsHost extends Map {
+export class VfsHost extends Map<string, string> implements ts.CompilerHost {
+  rootDir: URL;
+
+  defaultLibDir: URL;
+
+  importMap?: ImportMap;
+
   /**
    * Create a new virtual file system compiler host.
-   *
-   * @param {object} options
-   * @param {URL} options.rootDir
-   * @param {URL} options.defaultLibDir
-   * @param {ImportMap} [options.importMap]
    */
-  constructor(options) {
+  constructor(options: {
+    rootDir: URL;
+    defaultLibDir: URL;
+    importMap?: ImportMap;
+  }) {
     super();
     this.rootDir = options.rootDir;
     this.defaultLibDir = options.defaultLibDir;
@@ -40,13 +44,9 @@ export class VfsHost extends Map {
    *
    * Will try to load from {@link defaultLibDir} first, then from the local dts directory.
    *
-   * @param {string} libName
-   *
-   * @returns {Promise<void>}
-   *
    * @throws {Error} If the file couldn't be loaded.
    */
-  async loadLibFile(libName) {
+  async loadLibFile(libName: string): Promise<void> {
     let fileName = libName.toLowerCase();
     if (!fileName.startsWith("lib.")) fileName = `lib.${fileName}`;
     if (!fileName.endsWith(".d.ts")) fileName += ".d.ts";
@@ -77,14 +77,11 @@ export class VfsHost extends Map {
    *
    * If the file has types, the types will be loaded instead.
    *
-   * @param {URL} url
-   * @param {URL} [asUrl]
-   *
-   * @returns {Promise<string>} Path to import the file from.
+   * @returns Path to import the file from.
    *
    * @throws {Error} If the file couldn't be loaded.
    */
-  async loadFile(url, asUrl) {
+  async loadFile(url: URL, asUrl?: URL): Promise<string> {
     try {
       const { text, url: realUrl } = await this.#fetchFile(url);
       const fakePath = this.#urlToFakePath(asUrl ?? realUrl);
@@ -112,10 +109,9 @@ export class VfsHost extends Map {
    * Always prefers types over source.
    * If a remote file doesn't have appropriate extension, it will be added.
    *
-   * @param {URL} url
-   * @returns {Promise<{ text: string, url: URL }>}
+   * @returns Text content and resolved URL of the file.
    */
-  async #fetchFile(url) {
+  async #fetchFile(url: URL): Promise<{ text: string; url: URL }> {
     switch (url.protocol) {
       case "file:": {
         const text = await Deno.readTextFile(url);
@@ -151,11 +147,8 @@ export class VfsHost extends Map {
    * Rewrite URL to a local (possibly fake) path.
    *
    * Should return real path for FS URLs.
-   *
-   * @param {URL} url
-   * @returns {string}
    */
-  #urlToFakePath(url) {
+  #urlToFakePath(url: URL): string {
     if (url.protocol === "file:") {
       return url.pathname;
     }
@@ -167,18 +160,13 @@ export class VfsHost extends Map {
   }
 
   /**
-   * Transforms imports in a source file.
-   *
-   * @param {URL} realUrl
-   * @param {ts.SourceFile} file
-   * @returns {Promise<ts.SourceFile>}
+   * Loads all dependencies of a source file and transforms import specifiers.
    */
   async #transformSourceFile(
-    realUrl,
-    file,
-  ) {
-    /** @param {string} specifier */
-    const toFakeJs = (specifier) => {
+    realUrl: URL,
+    file: ts.SourceFile,
+  ): Promise<ts.SourceFile> {
+    const toFakeJs = (specifier: string) => {
       if (specifier.endsWith(".d.ts")) {
         return specifier.slice(0, -5) + ".js";
       }
@@ -230,14 +218,7 @@ export class VfsHost extends Map {
       }));
 
       // transform nodes
-
-      /**
-       * If this is an import/export statement, transform the module specifier.
-       * Else, recurse into children.
-       *
-       * @param {ts.Node} node
-       */
-      const transformTsNode = async (node) => {
+      const transformTsNode = async (node: ts.Node) => {
         // static import/export
         if (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) {
           const specifier = node.moduleSpecifier;
@@ -265,8 +246,7 @@ export class VfsHost extends Map {
         }
 
         // recurse into children
-        /** @type {ts.Node[]} */
-        const children = [];
+        const children: ts.Node[] = [];
         node.forEachChild((child) => {
           children.push(child);
         });
@@ -290,12 +270,15 @@ export class VfsHost extends Map {
   /**
    * Transforms the import specifier and loads the file it points to.
    *
-   * @param {URL} sourceUrl Url of the importing file.
-   * @param {string} specifier Import specifier to resolve.
-   * @returns {Promise<string>} Fake path to import the loaded file from.
+   * @param sourceUrl Url of the importing file.
+   * @param specifier Import specifier to resolve.
+   * @returns Fake path to import the loaded file from.
    * If the file failed to load, the original specifier is returned.
    */
-  async #transformSpecifier(sourceUrl, specifier) {
+  async #transformSpecifier(
+    sourceUrl: URL,
+    specifier: string,
+  ): Promise<string> {
     try {
       let resolvedScope = ""; // longest scope match wins
       let resolvedPrefix = ""; // then, longest prefix match wins
@@ -369,14 +352,9 @@ export class VfsHost extends Map {
 
   // CompilerHost methods
 
-  /**
-   * @param {string} fileName
-   * @param {ts.ScriptTarget | ts.CreateSourceFileOptions} options
-   * @returns {ts.SourceFile | undefined}
-   */
   getSourceFile(
-    fileName,
-    options,
+    fileName: string,
+    options: ts.ScriptTarget | ts.CreateSourceFileOptions,
   ) {
     const sourceText = this.readFile(fileName);
     if (sourceText == null) return;
@@ -402,7 +380,7 @@ export class VfsHost extends Map {
     return this.#urlToFakePath(this.rootDir);
   }
 
-  getCanonicalFileName(/** @type {string} */ fileName) {
+  getCanonicalFileName(fileName: string) {
     return fileName;
   }
 
@@ -414,7 +392,7 @@ export class VfsHost extends Map {
     return "\n";
   }
 
-  fileExists(/** @type {string} */ fileName) {
+  fileExists(fileName: string) {
     const exists = this.readFile(fileName, true) != null;
     if (!exists && !/\/node_modules\/|\/package.json$/.test(fileName)) {
       logger().debug(`Checked exists: ${fileName} - ${exists}`);
@@ -422,7 +400,7 @@ export class VfsHost extends Map {
     return exists;
   }
 
-  readFile(/** @type {string} */ fileName, checkOnly = false) {
+  readFile(fileName: string, checkOnly = false) {
     let foundName = fileName;
 
     // remove `/jsx-runtime` from the end of the file name
@@ -470,9 +448,8 @@ export class VfsHost extends Map {
 
 /**
  * Checks if a specifier is a bare specifier.
- * @param {string} specifier
  */
-function isBareSpecifier(specifier) {
+function isBareSpecifier(specifier: string): boolean {
   try {
     new URL(specifier);
     return false;
@@ -483,10 +460,8 @@ function isBareSpecifier(specifier) {
 
 /**
  * Joins paths to a URL.
- * @param {URL} url
- * @param {...string} paths
  */
-function joinUrl(url, ...paths) {
+function joinUrl(url: URL, ...paths: string[]): URL {
   return paths.reduce((url, path) => {
     if (!url.href.endsWith("/")) url = new URL(`${url.href}/`);
     return new URL(path, url);

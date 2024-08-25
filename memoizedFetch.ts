@@ -3,10 +3,7 @@ import { domStorageCache } from "jsr:@mega/memoize/cache/domStorage";
 import { memoizeAsync } from "jsr:@mega/memoize/async";
 
 export const memoizedFetch = memoizeAsync(
-  /**
-   * @param {URL} url
-   */
-  async (url) => {
+  async (url: URL) => {
     const resp = await fetch(url);
     if (!resp.ok) {
       throw new Error(`Failed to fetch ${url.href}: ${resp.statusText}`);

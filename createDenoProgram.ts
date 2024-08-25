@@ -2,7 +2,7 @@
 import { join, toFileUrl } from "jsr:@std/path@1.0.2";
 import { expandGlob } from "jsr:@std/fs@1.0.1";
 import * as ts from "npm:typescript@5.5.4";
-import { VfsHost } from "./VfsHost.js";
+import { VfsHost } from "./VfsHost.ts";
 import {
   ConsoleHandler,
   debug,
@@ -23,12 +23,14 @@ setup({
 });
 
 /**
- * @typedef {Object} DenoConfig
- * @property {ts.CompilerOptions} [compilerOptions]
- * @property {string | Record<string, string>} [exports]
- * @property {Record<string, string>} [imports]
- * @property {Record<string, Record<string, string>>} [scopes]
+ * Type of `deno.json` file.
  */
+interface DenoConfig {
+  compilerOptions?: ts.CompilerOptions;
+  exports?: string | Record<string, string>;
+  imports?: Record<string, string>;
+  scopes?: Record<string, Record<string, string>>;
+}
 
 /**
  * Creates a TypeScript program for a Deno project.
@@ -37,16 +39,21 @@ setup({
  *
  * Uses {@link VfsHost} internally.
  *
- * @param {object} [options] Options object.
- * @param {string} [options.rootDir] Root directory of the project.
+ * @param [options] Options object.
+ * @param [options.rootDir] Root directory of the project.
  * Used by TS program and to find `deno.json`.
  * Default is current working directory.
- * @param {string} [options.entryGlob] Glob pattern to find additional entry files.
+ * @param [options.entryGlob] Glob pattern to find additional entry files.
  * Default is all JS/TS files.
- * @param {import("./VfsHost.js").ImportMap} [options.importMap] Import map to resolve bare imports.
- * @param {ts.CompilerOptions} [options.compilerOptions] TypeScript compiler options.
+ * @param [options.importMap] Additional import map entries.
+ * @param [options.compilerOptions] TypeScript compiler options.
  */
-export async function createDenoProgram(options = {}) {
+export async function createDenoProgram(options: {
+  rootDir?: string;
+  entryGlob?: string;
+  importMap?: import("./VfsHost.ts").ImportMap;
+  compilerOptions?: ts.CompilerOptions;
+} = {}): Promise<ts.Program> {
   let {
     rootDir = Deno.cwd(),
     entryGlob = "**/*.{mts,ts,tsx,mjs,js,jsx}",
@@ -91,9 +98,9 @@ export async function createDenoProgram(options = {}) {
     if (await Deno.stat(denoConfigPath).catch(() => null) != null) {
       try {
         const denoConfigUrl = toFileUrl(denoConfigPath);
-        const denoConfig = /** @type {DenoConfig} */ (JSON.parse(
+        const denoConfig = JSON.parse(
           await Deno.readTextFile(denoConfigUrl),
-        ));
+        ) as DenoConfig;
         if (denoConfig.compilerOptions != null) {
           compilerOptions = {
             ...compilerOptions,
