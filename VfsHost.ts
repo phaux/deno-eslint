@@ -1,4 +1,3 @@
-// @ts-check
 import { parse } from "jsr:@std/path@1.0.2";
 import MagicString from "npm:magic-string@0.30.11";
 import * as ts from "npm:typescript@5.5.4";

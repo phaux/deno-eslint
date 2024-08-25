@@ -1,4 +1,3 @@
-// @ts-check
 import { join, toFileUrl } from "jsr:@std/path@1.0.2";
 import { expandGlob } from "jsr:@std/fs@1.0.1";
 import * as ts from "npm:typescript@5.5.4";

@@ -1,4 +1,3 @@
-// @ts-check
 import { domStorageCache } from "jsr:@mega/memoize/cache/domStorage";
 import { memoizeAsync } from "jsr:@mega/memoize/async";
 
