@@ -1,8 +1,8 @@
 // @ts-check
-import { parse } from "jsr:@std/path";
-import MagicString from "https://esm.sh/magic-string";
-import * as ts from "npm:typescript";
-import { getLogger } from "jsr:@std/log";
+import { parse } from "jsr:@std/path@1.0.2";
+import MagicString from "npm:magic-string@0.30.11";
+import * as ts from "npm:typescript@5.5.4";
+import { getLogger } from "jsr:@std/log@0.224.5";
 import { memoizedFetch } from "./memoizedFetch.ts";
 
 const logger = () => getLogger("VfsHost");
