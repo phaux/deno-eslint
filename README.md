@@ -1,5 +1,7 @@
 # Deno-ESLint
 
+[![deno](https://doc.deno.land/badge.svg)](https://deno.land/x/deslint/mod.ts)
+
 Run ESLint on your Deno projects.
 
 This is a reimplementation of Deno's TypeScript fork (which is implemented
